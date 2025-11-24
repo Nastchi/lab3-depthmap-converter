@@ -1,8 +1,8 @@
 #pragma once
+
 #include <vector>
 #include <string>
 
-// Класс для чтения карты глубины из бинарного файла
 class DepthReader {
 public:
     DepthReader();
@@ -13,6 +13,6 @@ public:
     void printInfo() const;
 
 private:
-    std::vector<std::vector<double>> depthData; // 2D массив значений глубины
-    int width, height; // Размеры карты глубины
+    std::vector<std::vector<double>> depthData;
+    int width, height;
 };

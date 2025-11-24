@@ -1,10 +1,14 @@
 #include "depth_reader.h"
 #include <iostream>
 #include <fstream>
+#include <vector>
+#include <algorithm>
+#include <cmath>
+
+using namespace std;
 
 DepthReader::DepthReader() : width(0), height(0) {}
 
-// Чтение карты глубины из бинарного файла
 bool DepthReader::readDepthMap(const std::string& filename) {
     std::ifstream file(filename, std::ios::binary);
     if (!file.is_open()) {
@@ -12,20 +16,52 @@ bool DepthReader::readDepthMap(const std::string& filename) {
         return false;
     }
 
-    // Чтение размеров карты глубины
+    // Получаем размер файла
+    file.seekg(0, std::ios::end);
+    size_t fileSize = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    // Читаем заголовок
     file.read(reinterpret_cast<char*>(&height), sizeof(height));
     file.read(reinterpret_cast<char*>(&width), sizeof(width));
 
-    // Выделение памяти и чтение данных глубины
+    // Если размеры некорректны, определяем автоматически
+    if (width <= 0 || height <= 0 || width > 10000 || height > 10000) {
+        size_t dataSize = fileSize - 8; // минус 8 байт заголовка
+        size_t totalPoints = dataSize / sizeof(double);
+
+        // Используем квадратный размер
+        width = static_cast<int>(sqrt(totalPoints));
+        height = width;
+
+        // Пропускаем некорректный заголовок
+        file.seekg(8, std::ios::beg);
+    }
+
+    std::cout << "Размер карты глубины: " << width << " x " << height << std::endl;
+
+    // Проверяем корректность размеров
+    if (width <= 0 || height <= 0) {
+        std::cerr << "Ошибка: Некорректные размеры карты глубины" << std::endl;
+        file.close();
+        return false;
+    }
+
+    // Читаем данные
     depthData.resize(height, std::vector<double>(width));
 
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
-            file.read(reinterpret_cast<char*>(&depthData[i][j]), sizeof(double));
+            if (!file.read(reinterpret_cast<char*>(&depthData[i][j]), sizeof(double))) {
+                std::cerr << "Ошибка чтения данных" << std::endl;
+                file.close();
+                return false;
+            }
         }
     }
 
     file.close();
+    std::cout << "Карта глубины загружена успешно" << std::endl;
     return true;
 }
 
@@ -36,7 +72,6 @@ const std::vector<std::vector<double>>& DepthReader::getDepthData() const {
 int DepthReader::getWidth() const { return width; }
 int DepthReader::getHeight() const { return height; }
 
-// Вывод информации о карте глубины
 void DepthReader::printInfo() const {
     std::cout << "=== Информация о карте глубины ===" << std::endl;
     std::cout << "Размер: " << width << " x " << height << std::endl;
@@ -45,7 +80,6 @@ void DepthReader::printInfo() const {
         double minDepth = depthData[0][0];
         double maxDepth = depthData[0][0];
 
-        // Поиск минимального и максимального значения глубины
         for (const auto& row : depthData) {
             for (double depth : row) {
                 if (depth < minDepth) minDepth = depth;
