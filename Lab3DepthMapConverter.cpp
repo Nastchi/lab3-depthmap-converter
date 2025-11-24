@@ -1,8 +1,8 @@
 ﻿#include <iostream>
 #include <string>
+#include <fstream>  // Добавьте этот include для работы с файлами
 #include "depth_reader.h"
 #include "obj_writer.h"
-#include "test_data_generator.h"
 #include "opengl_visualizer.h"
 
 using namespace std;
@@ -19,13 +19,11 @@ void printUsage() {
 }
 
 int main(int argc, char** argv) {
+    setlocale(LC_ALL, "Russian");
     string inputFile = "depthmap.dat";
     string outputFile = "model.obj";
     double scale = 1.0;
     bool visualize = false;
-
-    // Генерация тестовых данных карты глубины
-    generateTestData();
 
     // Обработка аргументов командной строки
     for (int i = 1; i < argc; i++) {
@@ -50,6 +48,15 @@ int main(int argc, char** argv) {
 
     cout << "=== Лабораторная работа №3 ===\n";
     cout << "Вариант 10: C++ -> .obj формат\n\n";
+
+    // Проверка существования входного файла
+    ifstream testFile(inputFile, ios::binary);
+    if (!testFile.good()) {
+        cerr << "Ошибка: Входной файл '" << inputFile << "' не существует!\n";
+        cerr << "Используйте -i для указания правильного файла\n";
+        return -1;
+    }
+    testFile.close();
 
     // Чтение карты глубины из файла
     DepthReader reader;
