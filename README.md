@@ -16,8 +16,8 @@
 ```cmd
 cl *.cpp /Fe:program.exe /I"D:\glut\freeglut\include" /EHsc /link "D:\glut\freeglut\lib\freeglut.lib" opengl32.lib glu32.lib gdi32.lib
 ```
-### Запуск
-##  Параметры командной строки
+
+###  Параметры командной строки
 
 | Параметр | Описание | Пример использования |
 |----------|----------|---------------------|
@@ -26,6 +26,8 @@ cl *.cpp /Fe:program.exe /I"D:\glut\freeglut\include" /EHsc /link "D:\glut\freeg
 | `-s <число>` | Задать масштаб модели | `program.exe -s 2.0` |
 | `-v` | Включить 3D визуализацию | `program.exe -v` |
 | `-h` | Показать справку | `program.exe -h` |
+
+### Запуск
 ```cmd
 program.exe -i DepthMap_10.dat -v
 ```
