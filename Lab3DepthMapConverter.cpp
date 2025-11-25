@@ -1,6 +1,6 @@
 ﻿#include <iostream>
 #include <string>
-#include <fstream>  // Добавьте этот include для работы с файлами
+#include <fstream>  
 #include "depth_reader.h"
 #include "obj_writer.h"
 #include "opengl_visualizer.h"

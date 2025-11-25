@@ -9,6 +9,7 @@
 
 using namespace std;
 
+
 vector<vector<double>> OpenGLVisualizer::depthData;
 float OpenGLVisualizer::rotationX = 0.0f;
 float OpenGLVisualizer::rotationY = 0.0f;
@@ -20,16 +21,20 @@ void OpenGLVisualizer::display() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glLoadIdentity();
 
+
     gluLookAt(0, 3, 2 * zoom, 
-        0, 0, 0,        
-        0, 2, 0);       
+        0, 0, 0,      
+        0, 2, 0);   
 
     glRotatef(rotationX, 1, 0, 0);
     glRotatef(rotationY, 0, 1, 0);
+
     glScalef(0.1f, 0.1f, 0.1f);
 
+    if (showAxes) {
+        drawAxes();
+    }
 
-    // Рисуем 3D модель из карты глубины
     if (!depthData.empty()) {
         drawDepthMapMesh();
     }
@@ -37,6 +42,35 @@ void OpenGLVisualizer::display() {
     glutSwapBuffers();
 }
 
+void OpenGLVisualizer::drawAxes() {
+    glDisable(GL_LIGHTING);
+    glLineWidth(3.0f);
+    glBegin(GL_LINES);
+
+    glColor3f(1, 0, 0);
+    glVertex3f(0, 0, 0);
+    glVertex3f(2, 0, 0);
+
+    glColor3f(0, 1, 0);
+    glVertex3f(0, 0, 0);
+    glVertex3f(0, 2, 0);
+
+    glColor3f(0, 0, 1);
+    glVertex3f(0, 0, 0);
+    glVertex3f(0, 0, 2);
+
+    glEnd();
+
+    glColor3f(1, 1, 1);
+    glRasterPos3f(2.2f, 0, 0);
+    glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, 'X');
+    glRasterPos3f(0, 2.2f, 0);
+    glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, 'Y');
+    glRasterPos3f(0, 0, 2.2f);
+    glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, 'Z');
+
+    glEnable(GL_LIGHTING);
+}
 
 void OpenGLVisualizer::drawDepthMapMesh() {
     if (wireframeMode) {
@@ -62,71 +96,65 @@ void OpenGLVisualizer::drawSolid() {
     vector<vector<float>> normals(height * width, vector<float>(3, 0.0f));
     calculateNormals(normals);
 
-    // Настройка материала
-    GLfloat materialColor[] = { 0.8f, 0.8f, 0.9f, 1.0f };
-    GLfloat materialSpecular[] = { 0.5f, 0.5f, 0.5f, 1.0f };
+    GLfloat materialColor[] = { 0.7f, 0.7f, 0.8f, 1.0f };
+    GLfloat materialSpecular[] = { 0.3f, 0.3f, 0.3f, 1.0f };
     glMaterialfv(GL_FRONT, GL_DIFFUSE, materialColor);
     glMaterialfv(GL_FRONT, GL_SPECULAR, materialSpecular);
     glMaterialf(GL_FRONT, GL_SHININESS, 50.0f);
 
+    // Рисуем треугольники 
     glBegin(GL_TRIANGLES);
     for (int i = 0; i < height - 1; i++) {
         for (int j = 0; j < width - 1; j++) {
-            // Треугольник 1: (i,j) - (i,j+1) - (i+1,j)
-            if (depthData[i][j] > 0.0 && depthData[i][j + 1] > 0.0 && depthData[i + 1][j] > 0.0) {
-                int idx1 = i * width + j;
-                int idx2 = i * width + j + 1;
-                int idx3 = (i + 1) * width + j;
-
-                if (idx1 < normals.size() && idx2 < normals.size() && idx3 < normals.size()) {
-                    double x1 = (j - width / 2.0) * 0.1;
-                    double z1 = (i - height / 2.0) * 0.1;
-                    double y1 = depthData[i][j] * 0.05;
-
-                    double x2 = (j + 1 - width / 2.0) * 0.1;
-                    double z2 = (i - height / 2.0) * 0.1;
-                    double y2 = depthData[i][j + 1] * 0.05;
-
-                    double x3 = (j - width / 2.0) * 0.1;
-                    double z3 = (i + 1 - height / 2.0) * 0.1;
-                    double y3 = depthData[i + 1][j] * 0.05;
-
-                    glNormal3f(normals[idx1][0], normals[idx1][1], normals[idx1][2]);
-                    glVertex3f(x1, y1, z1);
-                    glNormal3f(normals[idx2][0], normals[idx2][1], normals[idx2][2]);
-                    glVertex3f(x2, y2, z2);
-                    glNormal3f(normals[idx3][0], normals[idx3][1], normals[idx3][2]);
-                    glVertex3f(x3, y3, z3);
-                }
+            // Пропускаем треугольники, содержащие точки с нулевой глубиной (фон)
+            if (depthData[i][j] <= 0.0 || depthData[i][j + 1] <= 0.0 ||
+                depthData[i + 1][j] <= 0.0 || depthData[i + 1][j + 1] <= 0.0) {
+                continue;
             }
 
-            // Треугольник 2: (i,j+1) - (i+1,j+1) - (i+1,j)
-            if (depthData[i][j + 1] > 0.0 && depthData[i + 1][j + 1] > 0.0 && depthData[i + 1][j] > 0.0) {
-                int idx2 = i * width + j + 1;
-                int idx4 = (i + 1) * width + j + 1;
-                int idx3 = (i + 1) * width + j;
+            // Проверяем границы для нормалей
+            int idx1 = i * width + j;
+            int idx2 = i * width + j + 1;
+            int idx3 = (i + 1) * width + j;
+            int idx4 = (i + 1) * width + j + 1;
 
-                if (idx2 < normals.size() && idx4 < normals.size() && idx3 < normals.size()) {
-                    double x2 = (j + 1 - width / 2.0) * 0.1;
-                    double z2 = (i - height / 2.0) * 0.1;
-                    double y2 = depthData[i][j + 1] * 0.05;
-
-                    double x4 = (j + 1 - width / 2.0) * 0.1;
-                    double z4 = (i + 1 - height / 2.0) * 0.1;
-                    double y4 = depthData[i + 1][j + 1] * 0.05;
-
-                    double x3 = (j - width / 2.0) * 0.1;
-                    double z3 = (i + 1 - height / 2.0) * 0.1;
-                    double y3 = depthData[i + 1][j] * 0.05;
-
-                    glNormal3f(normals[idx2][0], normals[idx2][1], normals[idx2][2]);
-                    glVertex3f(x2, y2, z2);
-                    glNormal3f(normals[idx4][0], normals[idx4][1], normals[idx4][2]);
-                    glVertex3f(x4, y4, z4);
-                    glNormal3f(normals[idx3][0], normals[idx3][1], normals[idx3][2]);
-                    glVertex3f(x3, y3, z3);
-                }
+            if (idx1 >= normals.size() || idx2 >= normals.size() ||
+                idx3 >= normals.size() || idx4 >= normals.size()) {
+                continue;
             }
+
+            // Координаты вершин
+            double x1 = (j - width / 2.0) * 0.1;
+            double z1 = (i - height / 2.0) * 0.1;
+            double y1 = depthData[i][j] * 0.05;
+
+            double x2 = (j + 1 - width / 2.0) * 0.1;
+            double z2 = (i - height / 2.0) * 0.1;
+            double y2 = depthData[i][j + 1] * 0.05;
+
+            double x3 = (j - width / 2.0) * 0.1;
+            double z3 = (i + 1 - height / 2.0) * 0.1;
+            double y3 = depthData[i + 1][j] * 0.05;
+
+            double x4 = (j + 1 - width / 2.0) * 0.1;
+            double z4 = (i + 1 - height / 2.0) * 0.1;
+            double y4 = depthData[i + 1][j + 1] * 0.05;
+
+            // Первый треугольник
+            glNormal3f(normals[idx1][0], normals[idx1][1], normals[idx1][2]);
+            glVertex3f(x1, y1, z1);
+            glNormal3f(normals[idx2][0], normals[idx2][1], normals[idx2][2]);
+            glVertex3f(x2, y2, z2);
+            glNormal3f(normals[idx3][0], normals[idx3][1], normals[idx3][2]);
+            glVertex3f(x3, y3, z3);
+
+            // Второй треугольник
+            glNormal3f(normals[idx2][0], normals[idx2][1], normals[idx2][2]);
+            glVertex3f(x2, y2, z2);
+            glNormal3f(normals[idx4][0], normals[idx4][1], normals[idx4][2]);
+            glVertex3f(x4, y4, z4);
+            glNormal3f(normals[idx3][0], normals[idx3][1], normals[idx3][2]);
+            glVertex3f(x3, y3, z3);
         }
     }
     glEnd();
@@ -152,7 +180,6 @@ void OpenGLVisualizer::drawWireframe() {
                 continue; 
             }
 
-            // Горизонтальные линии
             double x1 = (j - width / 2.0) * 0.1;
             double z1 = (i - height / 2.0) * 0.1;
             double y1 = depthData[i][j] * 0.05;
@@ -189,43 +216,41 @@ void OpenGLVisualizer::calculateNormals(vector<vector<float>>& normals) {
     int height = depthData.size();
     int width = depthData[0].size();
 
-    // Инициализация нулевыми нормалями
     for (int i = 0; i < height * width; i++) {
         normals[i] = { 0.0f, 1.0f, 0.0f };
     }
 
-    // собираем нормали со всех граней
     for (int i = 0; i < height - 1; i++) {
         for (int j = 0; j < width - 1; j++) {
-            if (depthData[i][j] <= 0.0 && depthData[i][j + 1] <= 0.0 &&
+            if (depthData[i][j] <= 0.0 && depthData[i][j + 1] <= 0.0 && 
                 depthData[i + 1][j] <= 0.0 && depthData[i + 1][j + 1] <= 0.0) {
                 continue;
             }
 
-            // Рассчитываем нормали для каждого треугольника 
+            // Рассчитываем нормали для каждого треугольника отдельно
             vector<vector<float>> triangleNormals;
-
-  
+            
+            // Треугольник 1: (i,j) - (i,j+1) - (i+1,j)
             if (depthData[i][j] > 0.0 && depthData[i][j + 1] > 0.0 && depthData[i + 1][j] > 0.0) {
                 float nx, ny, nz;
-                calculateTriangleNormal(i, j, i, j + 1, i + 1, j, nx, ny, nz);
-                triangleNormals.push_back({ nx, ny, nz });
+                calculateTriangleNormal(i, j, i, j+1, i+1, j, nx, ny, nz);
+                triangleNormals.push_back({nx, ny, nz});
             }
-
-           
+            
+            // Треугольник 2: (i,j+1) - (i+1,j+1) - (i+1,j)
             if (depthData[i][j + 1] > 0.0 && depthData[i + 1][j + 1] > 0.0 && depthData[i + 1][j] > 0.0) {
                 float nx, ny, nz;
-                calculateTriangleNormal(i, j + 1, i + 1, j + 1, i + 1, j, nx, ny, nz);
-                triangleNormals.push_back({ nx, ny, nz });
+                calculateTriangleNormal(i, j+1, i+1, j+1, i+1, j, nx, ny, nz);
+                triangleNormals.push_back({nx, ny, nz});
             }
-
+            
             // Накопление нормалей для вершин
             for (const auto& normal : triangleNormals) {
                 int idx1 = i * width + j;
                 int idx2 = i * width + j + 1;
                 int idx3 = (i + 1) * width + j;
                 int idx4 = (i + 1) * width + j + 1;
-
+                
                 if (depthData[i][j] > 0.0 && idx1 < normals.size()) {
                     normals[idx1][0] += normal[0]; normals[idx1][1] += normal[1]; normals[idx1][2] += normal[2];
                 }
@@ -245,23 +270,23 @@ void OpenGLVisualizer::calculateNormals(vector<vector<float>>& normals) {
     // Нормализация накопленных нормалей
     for (int i = 0; i < height * width; i++) {
         if (depthData[i / width][i % width] > 0.0) {
-            float length = sqrt(normals[i][0] * normals[i][0] +
-                normals[i][1] * normals[i][1] +
-                normals[i][2] * normals[i][2]);
+            float length = sqrt(normals[i][0] * normals[i][0] + 
+                               normals[i][1] * normals[i][1] + 
+                               normals[i][2] * normals[i][2]);
             if (length > 0.0001f) {
                 normals[i][0] /= length;
                 normals[i][1] /= length;
                 normals[i][2] /= length;
-            }
-            else {
-                normals[i] = { 0.0f, 1.0f, 0.0f }; // нормаль по умолчанию
+            } else {
+                normals[i] = {0.0f, 1.0f, 0.0f}; 
             }
         }
     }
 }
 
-void OpenGLVisualizer::calculateTriangleNormal(int i1, int j1, int i2, int j2, int i3, int j3,
-    float& nx, float& ny, float& nz) {
+// Вспомогательная функция для расчета нормали треугольника
+void OpenGLVisualizer::calculateTriangleNormal(int i1, int j1, int i2, int j2, int i3, int j3, 
+                                              float& nx, float& ny, float& nz) {
     double x1 = (j1 - depthData[0].size() / 2.0) * 0.1;
     double y1 = depthData[i1][j1] * 0.05;
     double z1 = (i1 - depthData.size() / 2.0) * 0.1;
@@ -294,7 +319,8 @@ void OpenGLVisualizer::keyboard(unsigned char key, int x, int y) {
     case 'w': case 'W': rotationX += 5.0f; break;
     case 's': case 'S': rotationX -= 5.0f; break;
     case 'a': case 'A': rotationY += 5.0f; break;
-    case 'd': case 'D': rotationY -= 5.0f; break; 
+    case 'd': case 'D': rotationY -= 5.0f; break;
+    
     case 'r': case 'R': resetView(); break;
     case 27: exit(0); break; 
     }
@@ -323,7 +349,7 @@ void OpenGLVisualizer::reshape(int width, int height) {
 }
 
 void OpenGLVisualizer::setupLighting() {
-    //  освещение
+
     GLfloat light0_position[] = { 3.0f, 10.0f, 3.0f, 1.0f }; 
     GLfloat light0_ambient[] = { 0.3f, 0.3f, 0.3f, 1.0f };  
     GLfloat light0_diffuse[] = { 1.0f, 1.0f, 1.0f, 1.0f };  
@@ -408,6 +434,7 @@ void OpenGLVisualizer::initialize(int argc, char** argv, const std::vector<std::
     glEnable(GL_NORMALIZE);
     glShadeModel(GL_SMOOTH);
 
+    // Цвет фона
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
     setupLighting();
