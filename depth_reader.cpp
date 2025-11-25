@@ -9,59 +9,49 @@ using namespace std;
 
 DepthReader::DepthReader() : width(0), height(0) {}
 
+
 bool DepthReader::readDepthMap(const std::string& filename) {
+    setlocale(LC_ALL, "Russian");
+
     std::ifstream file(filename, std::ios::binary);
     if (!file.is_open()) {
-        std::cerr << "Ошибка: Не удалось открыть файл " << filename << std::endl;
+        std::cerr << "РћС€РёР±РєР°: РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєСЂС‹С‚СЊ С„Р°Р№Р» " << filename << std::endl;
+        return false;
+    }
+    double readHeight, readWidth;
+    file.read(reinterpret_cast<char*>(&readHeight), sizeof(double));
+    file.read(reinterpret_cast<char*>(&readWidth), sizeof(double));
+
+    height = static_cast<int>(std::round(readHeight));
+    width = static_cast<int>(std::round(readWidth));
+
+    std::cout << "Р Р°Р·РјРµСЂ РєР°СЂС‚С‹ РіР»СѓР±РёРЅС‹: " << width << " x " << height << std::endl;
+
+    if (height <= 0 || width <= 0) {
+        std::cerr << "РќРµРєРѕСЂСЂРµРєС‚РЅС‹Рµ СЂР°Р·РјРµСЂС‹ РєР°СЂС‚С‹ РіР»СѓР±РёРЅС‹: " << width << " x " << height << std::endl;
         return false;
     }
 
-    // Получаем размер файла
-    file.seekg(0, std::ios::end);
-    size_t fileSize = file.tellg();
-    file.seekg(0, std::ios::beg);
+    // Р§РёС‚Р°РµРј РґР°РЅРЅС‹Рµ РІ РѕРґРЅРѕРјРµСЂРЅС‹Р№ РјР°СЃСЃРёРІ (Р±РѕР»РµРµ СЌС„С„РµРєС‚РёРІРЅРѕ)
+    std::vector<double> flatData(width * height);
+    file.read(reinterpret_cast<char*>(flatData.data()), width * height * sizeof(double));
 
-    // Читаем заголовок
-    file.read(reinterpret_cast<char*>(&height), sizeof(height));
-    file.read(reinterpret_cast<char*>(&width), sizeof(width));
-
-    // Если размеры некорректны, определяем автоматически
-    if (width <= 0 || height <= 0 || width > 10000 || height > 10000) {
-        size_t dataSize = fileSize - 8; // минус 8 байт заголовка
-        size_t totalPoints = dataSize / sizeof(double);
-
-        // Используем квадратный размер
-        width = static_cast<int>(sqrt(totalPoints));
-        height = width;
-
-        // Пропускаем некорректный заголовок
-        file.seekg(8, std::ios::beg);
-    }
-
-    std::cout << "Размер карты глубины: " << width << " x " << height << std::endl;
-
-    // Проверяем корректность размеров
-    if (width <= 0 || height <= 0) {
-        std::cerr << "Ошибка: Некорректные размеры карты глубины" << std::endl;
-        file.close();
+    if (!file) {
+        std::cerr << "РћС€РёР±РєР° С‡С‚РµРЅРёСЏ РґР°РЅРЅС‹С… РёР· С„Р°Р№Р»Р°" << std::endl;
         return false;
     }
 
-    // Читаем данные
+    // РљРѕРЅРІРµСЂС‚РёСЂСѓРµРј РІ 2D РјР°СЃСЃРёРІ
     depthData.resize(height, std::vector<double>(width));
-
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
-            if (!file.read(reinterpret_cast<char*>(&depthData[i][j]), sizeof(double))) {
-                std::cerr << "Ошибка чтения данных" << std::endl;
-                file.close();
-                return false;
-            }
+            depthData[i][j] = flatData[i * width + j];
         }
     }
 
     file.close();
-    std::cout << "Карта глубины загружена успешно" << std::endl;
+    std::cout << "РљР°СЂС‚Р° РіР»СѓР±РёРЅС‹ Р·Р°РіСЂСѓР¶РµРЅР° СѓСЃРїРµС€РЅРѕ" << std::endl;
+    std::cout << "Р’СЃРµРіРѕ С‚РѕС‡РµРє: " << width * height << std::endl;
     return true;
 }
 
@@ -72,22 +62,3 @@ const std::vector<std::vector<double>>& DepthReader::getDepthData() const {
 int DepthReader::getWidth() const { return width; }
 int DepthReader::getHeight() const { return height; }
 
-void DepthReader::printInfo() const {
-    std::cout << "=== Информация о карте глубины ===" << std::endl;
-    std::cout << "Размер: " << width << " x " << height << std::endl;
-
-    if (!depthData.empty()) {
-        double minDepth = depthData[0][0];
-        double maxDepth = depthData[0][0];
-
-        for (const auto& row : depthData) {
-            for (double depth : row) {
-                if (depth < minDepth) minDepth = depth;
-                if (depth > maxDepth) maxDepth = depth;
-            }
-        }
-
-        std::cout << "Минимальная глубина: " << minDepth << std::endl;
-        std::cout << "Максимальная глубина: " << maxDepth << std::endl;
-    }
-}

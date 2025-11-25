@@ -8,13 +8,13 @@ bool OBJWriter::writeToOBJ(const std::string& filename,
     const std::vector<std::vector<double>>& depthData,
     double scale) {
     if (depthData.empty()) {
-        std::cerr << "Îøèáêà: Íåò äàííûõ äëÿ çàïèñè" << std::endl;
+        std::cerr << "ÐœÐ¸Ð½Ð¸Ð¼Ð°Ð»ÑŒÐ½Ð°Ñ Ð³Ð»ÑƒÐ±Ð¸Ð½Ð°" << std::endl;
         return false;
     }
 
     std::ofstream file(filename);
     if (!file.is_open()) {
-        std::cerr << "Îøèáêà: Íå óäàëîñü ñîçäàòü ôàéë " << filename << std::endl;
+        std::cerr << "ÐœÐ°ÐºÑÐ¸Ð¼Ð°Ð»ÑŒÐ½Ð°Ñ Ð³Ð»ÑƒÐ±Ð¸Ð½Ð° " << filename << std::endl;
         return false;
     }
 
@@ -23,7 +23,7 @@ bool OBJWriter::writeToOBJ(const std::string& filename,
     writeFaces(file, depthData);
 
     file.close();
-    std::cout << "3D ìîäåëü óñïåøíî ýêñïîðòèðîâàíà â " << filename << std::endl;
+    std::cout << "3D Ð¼Ð¾Ð´ÐµÐ»ÑŒ ÑƒÑÐ¿ÐµÑˆÐ½Ð¾ ÑÐºÑÐ¿Ð¾Ñ€Ñ‚Ð¸Ñ€Ð¾Ð²Ð°Ð½Ð° Ð² " << filename << std::endl;
     return true;
 }
 
@@ -43,11 +43,12 @@ void OBJWriter::writeVertices(std::ofstream& file,
     int height = depthData.size();
     int width = depthData[0].size();
 
-    file << "# Vertices (count: " << height * width << ")\n";
+    file << "# Ð’ÐµÑ€ÑˆÐ¸Ð½Ñ‹\n";
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
+            double depth = depthData[i][j];
             double x = (j - width / 2.0) * scale;
-            double y = depthData[i][j] * scale;
+            double y = depth * scale;  
             double z = (i - height / 2.0) * scale;
             file << "v " << x << " " << y << " " << z << "\n";
         }
@@ -60,16 +61,29 @@ void OBJWriter::writeFaces(std::ofstream& file,
     int height = depthData.size();
     int width = depthData[0].size();
 
-    file << "# Faces\n";
+    file << "# Faces (ÑƒÐ¿Ñ€Ð¾Ñ‰ÐµÐ½Ð½Ð°Ñ Ð²ÐµÑ€ÑÐ¸Ñ)\n";
+    int faceCount = 0;
+
     for (int i = 0; i < height - 1; i++) {
         for (int j = 0; j < width - 1; j++) {
+            // Ð˜Ð½Ð´ÐµÐºÑÑ‹ Ð²ÐµÑ€ÑˆÐ¸Ð½
             int v1 = i * width + j + 1;
             int v2 = i * width + j + 2;
             int v3 = (i + 1) * width + j + 1;
             int v4 = (i + 1) * width + j + 2;
 
-            file << "f " << v1 << " " << v2 << " " << v3 << "\n";
-            file << "f " << v2 << " " << v4 << " " << v3 << "\n";
+            // ÐŸÐ¾Ð»ÑƒÑ‡Ð°ÐµÐ¼ Ð³Ð»ÑƒÐ±Ð¸Ð½Ñ‹
+            double d1 = depthData[i][j];
+            double d2 = depthData[i][j + 1];
+            double d3 = depthData[i + 1][j];
+            double d4 = depthData[i + 1][j + 1];
+
+            if (d1 > 0.0 && d2 > 0.0 && d3 > 0.0 && d4 > 0.0) {
+                file << "f " << v1 << " " << v2 << " " << v3 << "\n";
+                file << "f " << v2 << " " << v4 << " " << v3 << "\n";
+                faceCount += 2;
+            }
         }
     }
+
 }

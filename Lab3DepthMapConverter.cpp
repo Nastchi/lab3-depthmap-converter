@@ -48,6 +48,9 @@ int main(int argc, char** argv) {
 
     cout << "=== Лабораторная работа №3 ===\n";
     cout << "Вариант 10: C++ -> .obj формат\n\n";
+    cout << "Входной файл: " << inputFile << endl;
+    cout << "Выходной файл: " << outputFile << endl;
+    cout << "Масштаб: " << scale << endl << endl;
 
     // Проверка существования входного файла
     ifstream testFile(inputFile, ios::binary);
